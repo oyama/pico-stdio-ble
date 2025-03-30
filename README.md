@@ -22,7 +22,7 @@ git clone https://github.com/oyama/pico-stdio-ble.git
 Next, add the following lines to your project's `CMakeLists.txt` to include _pico_stdio_ble_ in the build process:
 
 ```CMakeLists.txt
-add_subdirectory(pico_stdio_ble)
+add_subdirectory(pico-stdio-ble)
 ```
 
 Then, add the `pico_enable_stdio_ble` function to `CMakeLists.txt` to enable the feature:
