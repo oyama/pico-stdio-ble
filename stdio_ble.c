@@ -1,5 +1,5 @@
 /*
- * Copyright 2025, Hiroyuki OYAMA. All rights reserved.
+ * Copyright 2025, Hiroyuki OYAMA.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -20,16 +20,17 @@
 #define MAX_NR_CONNECTIONS 3
 
 
-const uint8_t adv_data[] = {
+static uint8_t adv_data[] = {
     // Flags general discoverable, BR/EDR not supported
     2, BLUETOOTH_DATA_TYPE_FLAGS, 0x06,
     // Name
+    //0x05, BLUETOOTH_DATA_TYPE_BROADCAST_NAME, 'P', 'i', 'c', 'o',
     0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0',
     // UUID ...
-    17, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS, 0x9e, 0xca, 0xdc, 0x24, 0xe, 0xe5, 0xa9, 0xe0, 0x93, 0xf3, 0xa3, 0xb5, 0x1, 0x0, 0x40, 0x6e,
+    //17, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS, 0x9e, 0xca, 0xdc, 0x24, 0xe, 0xe5, 0xa9, 0xe0, 0x93, 0xf3, 0xa3, 0xb5, 0x1, 0x0, 0x40, 0x6e,
+    0x03, BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x10, 0xff,
 };
 const uint8_t adv_data_len = sizeof(adv_data);
-
 
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 
@@ -84,15 +85,26 @@ static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *p
     UNUSED(size);
 
     uint16_t conn_interval;
+    bd_addr_t local_addr;
 
     if (packet_type != HCI_EVENT_PACKET) return;
 
     switch (hci_event_packet_get_type(packet)) {
         case BTSTACK_EVENT_STATE:
-            // BTstack activated, get started
-            if (btstack_event_state_get_state(packet) == HCI_STATE_WORKING) {
-                printf("To start the streaming, please run nRF Toolbox -> UART to connect.\n");
-            }
+            if (btstack_event_state_get_state(packet) != HCI_STATE_WORKING) return;
+            gap_local_bd_addr(local_addr);
+            printf("BTstack up and running on %s, please run nRF Toolbox -> UART to connect.\n", bd_addr_to_str(local_addr));
+            memcpy(adv_data + 10, bd_addr_to_str(local_addr), 17);
+
+            // setup advertisements
+            uint16_t adv_int_min = 800;
+            uint16_t adv_int_max = 800;
+            uint8_t adv_type = 0;
+            bd_addr_t null_addr;
+            memset(null_addr, 0, 6);
+            gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
+            gap_advertisements_set_data(adv_data_len, (uint8_t *)adv_data);
+            gap_advertisements_enable(1);
             break;
         case HCI_EVENT_META_GAP:
             switch (hci_event_gap_meta_get_subevent_code(packet)) {
@@ -157,6 +169,11 @@ static void nordic_spp_packet_handler(uint8_t packet_type, uint16_t channel, uin
                     break;
             }
             break;
+        case RFCOMM_DATA_PACKET:
+            //TODO: Received data can be read out with `stdio_ble_in_chars`
+            //NOTE: Is the BTstack implementation that gives RFCOMM_DATA_PACKET and calls back in this situation correct?
+            printf("Recive message=\"%s\" size=%u\n", packet, size);
+            break;
         default:
             break;
     }
@@ -209,7 +226,6 @@ static void send_stdout_callback(void * some_context){
     // check next
     next_connection_index();
 }
-
 
 static void stdio_ble_out_chars(const char *buffer, int length) {
     if (con_handle == HCI_CON_HANDLE_INVALID)
