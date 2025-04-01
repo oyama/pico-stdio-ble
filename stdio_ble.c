@@ -24,13 +24,18 @@ static uint8_t adv_data[] = {
     // Flags general discoverable, BR/EDR not supported
     2, BLUETOOTH_DATA_TYPE_FLAGS, 0x06,
     // Name
-    //0x05, BLUETOOTH_DATA_TYPE_BROADCAST_NAME, 'P', 'i', 'c', 'o',
-    0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0',
+    0x05, BLUETOOTH_DATA_TYPE_SHORTENED_LOCAL_NAME, 'P', 'i', 'c', 'o',
     // UUID ...
-    //17, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS, 0x9e, 0xca, 0xdc, 0x24, 0xe, 0xe5, 0xa9, 0xe0, 0x93, 0xf3, 0xa3, 0xb5, 0x1, 0x0, 0x40, 0x6e,
-    0x03, BLUETOOTH_DATA_TYPE_INCOMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x10, 0xff,
+    17, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS, 0x9e, 0xca, 0xdc, 0x24, 0xe, 0xe5, 0xa9, 0xe0, 0x93, 0xf3, 0xa3, 0xb5, 0x1, 0x0, 0x40, 0x6e,
 };
 const uint8_t adv_data_len = sizeof(adv_data);
+
+#define ADVERTISEMENTS_FIELD_HEADER  2
+static uint8_t complete_local_name[] = {
+    0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0'
+};
+const uint8_t scan_response_data_len = sizeof(complete_local_name);
+
 
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 
@@ -93,8 +98,8 @@ static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *p
         case BTSTACK_EVENT_STATE:
             if (btstack_event_state_get_state(packet) != HCI_STATE_WORKING) return;
             gap_local_bd_addr(local_addr);
-            printf("BTstack up and running on %s, please run nRF Toolbox -> UART to connect.\n", bd_addr_to_str(local_addr));
-            memcpy(adv_data + 10, bd_addr_to_str(local_addr), 17);
+            const char *mac = bd_addr_to_str(local_addr);
+            printf("BTstack up and running on %s, please run Nordic UART Servier client -> UART to connect.\n", mac);
 
             // setup advertisements
             uint16_t adv_int_min = 800;
@@ -104,6 +109,7 @@ static void hci_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *p
             memset(null_addr, 0, 6);
             gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
             gap_advertisements_set_data(adv_data_len, (uint8_t *)adv_data);
+            gap_scan_response_set_data(scan_response_data_len, complete_local_name);
             gap_advertisements_enable(1);
             break;
         case HCI_EVENT_META_GAP:
@@ -171,7 +177,6 @@ static void nordic_spp_packet_handler(uint8_t packet_type, uint16_t channel, uin
             break;
         case RFCOMM_DATA_PACKET:
             //TODO: Received data can be read out with `stdio_ble_in_chars`
-            //NOTE: Is the BTstack implementation that gives RFCOMM_DATA_PACKET and calls back in this situation correct?
             printf("Recive message=\"%s\" size=%u\n", packet, size);
             break;
         default:
@@ -272,15 +277,6 @@ int stdio_ble_init(void) {
     // setup Nordic SPP service
     nordic_spp_service_server_init(&nordic_spp_packet_handler);
     att_server_register_packet_handler(att_packet_handler);
-
-    uint16_t adv_int_min = 0x0030;
-    uint16_t adv_int_max = 0x0030;
-    uint8_t adv_type = 0;
-    bd_addr_t null_addr;
-    memset(null_addr, 0, 6);
-    gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
-    gap_advertisements_set_data(adv_data_len, (uint8_t *)adv_data);
-    gap_advertisements_enable(1);
 
     // init client state
     init_connections();
