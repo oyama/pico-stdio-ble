@@ -1,7 +1,8 @@
 # Support for stdout over BLE for Raspberry Pi Pico W
 
-This library routes your device's standard output (stdout) logs over BLE using the Nordic UART Service.
-In addition to the traditional UART and USB CDC options, you can now capture logs wirelessly without any cables.
+This library transfers your device's standard output (`stdout`) logs to a wireless network over BLE using the Nordic UART Service.
+In addition to the UART and USB CDC options supported by pico-sdk, you can now capture logs wirelessly without any cables.
+It also allows you to view logs directly on your smartphone, making remote monitoring even more convenient.
 This is especially handy for field troubleshooting and debugging during deployment, specifically on the Raspberry Pi Pico W and Pico 2 W.
 
 ## Features
@@ -65,3 +66,7 @@ This firmware outputs stdout to UART, USB CDC, and BLE NUS. To check the logs, c
 ## License
 
 This project is licensed under the 3-Clause BSD License. For details, see the [LICENSE](LICENSE.md) file.
+
+## Related Projects and Inspirations
+
+Memotech-Bill's [Bluetooth-stdio](https://github.com/Memotech-Bill/bluetooth-stdio) is a pico-sdk stdio driver that supports the Bluetooth Serial Port Profile (SPP). However, note that SPP is not supported on iOS. When paired with a host running an operating system that supports SPP, serial communication is enabled via a virtual serial device.
